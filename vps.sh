@@ -2894,6 +2894,8 @@ smtp_tls_protocols = !SSLv2, !SSLv3, !TLSv1, !TLSv1.1
 # See /usr/share/doc/postfix/TLS_README.gz in the postfix-doc package for
 # information on enabling SSL in the smtp client.
 
+smtpd_sasl_type = dovecot
+
 smtpd_relay_restrictions = permit_mynetworks permit_sasl_authenticated defer_unauth_destination
 myhostname = ${domain}
 alias_maps = hash:/etc/aliases
@@ -3017,6 +3019,7 @@ gpg --export ED409DA1 > /etc/apt/trusted.gpg.d/dovecot.gpg
 echo "deb https://repo.dovecot.org/ce-2.3-latest/${dist}/$(lsb_release -cs) $(lsb_release -cs) main" > /etc/apt/sources.list.d/dovecot.list
 apt-get update
 apt-get install dovecot-core dovecot-imapd dovecot-pop3d dovecot-lmtpd -y
+systemctl enable dovecot
 cd /usr/share/nginx/
 wget https://github.com/roundcube/roundcubemail/releases/download/1.4.5/roundcubemail-1.4.5-complete.tar.gz
 tar -xvf roundcubemail-1.4.5-complete.tar.gz
@@ -3025,7 +3028,7 @@ mv /usr/share/nginx/roundcubemail*/ /usr/share/nginx/roundcubemail/
 chown -R nginx:nginx /usr/share/nginx/roundcubemail/
 mysql -u root -e "CREATE DATABASE roundcubemail DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;"
 mysql -u root -e "CREATE USER roundcube@localhost;"
-mysql -u root -e "GRANT ALL PRIVILEGES ON roundcube.* TO roundcubeuser@localhost;"
+mysql -u root -e "GRANT ALL PRIVILEGES ON roundcubemail.* TO roundcube@localhost;"
 mysql -u root -e "flush privileges;"
 mysql roundcube < /usr/share/nginx/roundcubemail/SQL/mysql.initial.sql
 useradd -m -s /sbin/nologin roundcube
@@ -3168,48 +3171,9 @@ EOF
 # SSL/TLS support: yes, no, required. <doc/wiki/SSL.txt>
 ssl = required
 
-# PEM encoded X.509 SSL/TLS certificate and private key. They're opened before
-# dropping root privileges, so keep the key file unreadable by anyone but
-# root. Included doc/mkcert.sh can be used to easily generate self-signed
-# certificate, just make sure to update the domains in dovecot-openssl.cnf
 ssl_cert = </etc/certs/${domain}_ecc/fullchain.cer
 ssl_key = </etc/certs/${domain}_ecc/${domain}.key
 
-# If key file is password protected, give the password here. Alternatively
-# give it when starting dovecot with -p parameter. Since this file is often
-# world-readable, you may want to place this setting instead to a different
-# root owned 0600 file by using ssl_key_password = <path.
-#ssl_key_password =
-
-# PEM encoded trusted certificate authority. Set this only if you intend to use
-# ssl_verify_client_cert=yes. The file should contain the CA certificate(s)
-# followed by the matching CRL(s). (e.g. ssl_ca = </etc/ssl/certs/ca.pem)
-#ssl_ca = 
-
-# Require that CRL check succeeds for client certificates.
-#ssl_require_crl = yes
-
-# Directory and/or file for trusted SSL CA certificates. These are used only
-# when Dovecot needs to act as an SSL client (e.g. imapc backend or
-# submission service). The directory is usually /etc/ssl/certs in
-# Debian-based systems and the file is /etc/pki/tls/cert.pem in
-# RedHat-based systems.
-#ssl_client_ca_dir = /etc/ssl/certs
-#ssl_client_ca_file =
-
-# Request client to send a certificate. If you also want to require it, set
-# auth_ssl_require_client_cert=yes in auth section.
-#ssl_verify_client_cert = no
-
-# Which field from certificate to use for username. commonName and
-# x500UniqueIdentifier are the usual choices. You'll also need to set
-# auth_ssl_username_from_cert=yes.
-#ssl_cert_username_field = commonName
-
-# SSL DH parameters
-# Generate new params with `openssl dhparam -out /etc/dovecot/dh.pem 4096`
-# Or migrate from old ssl-parameters.dat file with the command dovecot
-# gives on startup when ssl_dh is unset.
 ssl_dh = </usr/local/etc/trojan/trojan.pem
 
 # Minimum SSL protocol version to use. Potentially recognized values are SSLv3,
@@ -3225,12 +3189,7 @@ ssl_min_protocol = TLSv1.2
 # means use the defaults from the SSL library. P-521:P-384:P-256 would be an
 # example of a valid value.
 #ssl_curve_list =
-
-# Prefer the server's order of ciphers over client's.
 ssl_prefer_server_ciphers = yes
-
-# SSL crypto device to use, for valid values run "openssl engine"
-#ssl_crypto_device =
 
 # SSL extra options. Currently supported options are:
 #   compression - Enable compression.
@@ -3526,11 +3485,11 @@ echo "        client_max_body_size 0;" >> /etc/nginx/conf.d/default.conf
 echo "        index index.php;" >> /etc/nginx/conf.d/default.conf
 echo "        alias /usr/share/nginx/roundcubemail/;" >> /etc/nginx/conf.d/default.conf
 echo "        location ~ \.php\$ {" >> /etc/nginx/conf.d/default.conf
-echo "        		include fastcgi_params;" >> /etc/nginx/conf.d/default.conf
-echo "        		fastcgi_pass unix:/run/php/php7.4-fpm.sock;" >> /etc/nginx/conf.d/default.conf
-echo "        		fastcgi_index index.php;" >> /etc/nginx/conf.d/default.conf
-echo "        		fastcgi_param SCRIPT_FILENAME \$request_filename;" >> /etc/nginx/conf.d/default.conf
-echo "        		}" >> /etc/nginx/conf.d/default.conf
+echo "        	include fastcgi_params;" >> /etc/nginx/conf.d/default.conf
+echo "        	fastcgi_pass unix:/run/php/php7.4-fpm.sock;" >> /etc/nginx/conf.d/default.conf
+echo "        	fastcgi_index index.php;" >> /etc/nginx/conf.d/default.conf
+echo "        	fastcgi_param SCRIPT_FILENAME \$request_filename;" >> /etc/nginx/conf.d/default.conf
+echo "        	}" >> /etc/nginx/conf.d/default.conf
 echo "        }" >> /etc/nginx/conf.d/default.conf
 fi
 if [[ $dnsmasq_install == 1 ]]; then
@@ -3808,9 +3767,11 @@ body {
   background-color: #cccccc;
   font-size: 1.2em;
 }
+
 ul.ttlist{
     list-style: cjk-ideographic;
 }
+
 .menu{
     position: relative;
     background-color: #B2BEB5;  
@@ -3822,12 +3783,14 @@ ul.ttlist{
     width: 100%;
     height: 8%;
 }
+
 .menu ul{
     list-style-type: none;
     overflow: hidden;
     margin: 0;
     padding: 0;
 }
+
 .menu li{
     float: left;
 }
@@ -3839,9 +3802,11 @@ ul.ttlist{
     padding-right: 100px;
     text-decoration: none;
 }
+
 .menu li:hover {
     background-color: #CC99FF;
 }
+
 .tt{
     /* position: absolute; */
     border:1px #00f none;
@@ -3868,13 +3833,16 @@ ul.ttlist{
     color: #8095ff;
     /* font-size: 1.3em; */
 }
+
 .tt img{
     width: 550px;
     height: 40%;
 }
+
 .tt li {
     padding-top: 10px;
 }
+
 .subtt{
     text-align: center;
     margin: auto;
@@ -3885,9 +3853,11 @@ ul.ttlist{
     font-size: 0.8em;
     text-align: right;
 }
+
 .t1{
     font-size: 1.2em;
 }
+
 footer{
     padding-top: 0;
     position: fixed;
@@ -3897,18 +3867,22 @@ footer{
     height: 50px;
     bottom: 0;
 }
+
 footer p{
     color: #fff;
     text-align: center;
     font-size: 1em;
     font-family: sans-serif;
 }
+
 footer a{
     color: #fff;
 }
+
 footer a:link {
     text-decoration: none;
 }
+
 @media (max-width: 560px){
     .menu{
         font-size: 1.2em;
@@ -3916,6 +3890,7 @@ footer a:link {
     .sidebar {
         display: none;
     }
+
     .cate {
         display: none;
     }
@@ -3928,6 +3903,7 @@ footer a:link {
         padding-top: 0px;
     }
 }
+
 @media (max-width: 750px){
     .sidebar {
         display: none;
@@ -3939,14 +3915,17 @@ footer a:link {
 ::-webkit-scrollbar {
     width: 11px;
 }
+
 ::-webkit-scrollbar-track {
     background: #CCFFEE;
     border-radius: 10px;
 }
+
 ::-webkit-scrollbar-thumb {
     background: #B3E5FF;
     border-radius: 10px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
     background: #156; 
 }
@@ -4083,6 +4062,7 @@ footer a:link {
                         <li><a href="https://filebrowser.xyz/" target="_blank">https://filebrowser.xyz/</a></li>
                     </ul>
                     <br>
+
                     <h2>Netdata</h2>
                     <h4>默认安装: ✅</h4>
                     <p>Your Netdata Information</p>
@@ -4093,6 +4073,7 @@ footer a:link {
                         <li><a href="https://github.com/netdata/netdata" target="_blank">https://github.com/netdata/netdata</a></li>
                     </ol>
                     <br>
+
                     <h2>Speedtest</h2>
                     <h4>默认安装: ✅</h4>
                     <p>Your Speedtest Information</p>
@@ -4103,6 +4084,7 @@ footer a:link {
                         <li><a href="https://github.com/librespeed/speedtest/blob/docker/doc.md" target="_blank">https://github.com/librespeed/speedtest/blob/docker/doc.md</a></li>
                     </ol>
                     <br>
+
                     <h2>MariaDB</h2>
                     <h4>默认安装: ✅</h4>
                     <p>Your MariaDb Information</p>
@@ -4113,6 +4095,40 @@ footer a:link {
                     <p>Please edit /etc/mysql/my.cnf and restart mariadb if you need remote access !</p>
                     <br>
                     
+                    <h2>Mail Service</h2>
+                    <h4>默认安装: ❎</h4>
+                    <p>Your Mail service Information</p>
+                    <!-- <p><a href="https://$domain$qbtpath" target="_blank">https://$domain$qbtpath</a> 用户名(username): admin 密碼(password): adminadmin</p> -->
+                    <ul>
+                        <li><a href="https://${domain}/${password1}_webmail/installer/" target="_blank">install page</a></li>
+                        <li><a href="https://${domain}/${password1}_webmail/" target="_blank">production page</a></li>
+                        <li>用户名(username): roundcube</li>
+                        <li>密碼(password): ${password1}</li>
+                    </ul>
+                    <p>Tips:</p>
+                    <ol>
+                        <li>请</li>
+                        <li>请</li>
+                        <li>请</li>
+                    </ol>
+                    
+                    <p>附：</p>
+                    <ol>
+                        <li><a href="https://thepiratebay.org/" target="_blank">https://thepiratebay.org/</a></li>
+                        <li><a href="https://sukebei.nyaa.si/" target="_blank">https://sukebei.nyaa.si/</a></li>
+                        <li><a href="https://rarbgprx.org/torrents.php" target="_blank">https://rarbgprx.org/torrents.php</a></li>
+                    </ol>
+                    <p>Related Links</p>
+                    <ol>
+                        <li><a href="https://www.qbittorrent.org/download.php" target="_blank">win等平台下载页面</a></li>
+                        <li><a href="https://github.com/qbittorrent/qBittorrent" target="_blank">Github页面</a></li>
+                        <li><a href="https://play.google.com/store/apps/details?id=com.lgallardo.qbittorrentclientpro" target="_blank">Android远程操控客户端</a></li>
+                        <li><a href="https://www.qbittorrent.org/" target="_blank">https://www.qbittorrent.org/</a></li>
+                        <li><a href="https://www.johnrosen1.com/qbt/" target="_blank">https://www.johnrosen1.com/qbt/</a></li>
+                    </ol>
+                    <br>
+
+
                     <h2>How to change the default config </h2>
                     <p>Nginx</p>
                     <ul>
@@ -4150,6 +4166,7 @@ footer a:link {
                         <li><code>sudo systemctl start/restart/status tor@default</code></li>
                     </ul>
                     <br>
+
                 </div>
             </article>
             <footer>
