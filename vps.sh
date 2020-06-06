@@ -442,7 +442,7 @@ whiptail --clear --ok-button "吾意已決 立即執行" --backtitle "Hi , Pleas
 "13" "MariaDB" on \
 "邮件" "Mail" on  \
 "14" "Mail service" off \
-"其他" "Others" on  \
+"其他" "Others" off  \
 "15" "OPENSSL" off \
 "16" "Tor-Relay" off \
 "17" "Enable TLS1.3 only" off 2>results
@@ -529,8 +529,8 @@ if [[ ${system_upgrade} == 1 ]]; then
 fi
 ####################################
 if [[ ${install_mail} == 1 ]]; then
-whiptail --title "Example Dialog" --msgbox "Warning!!!:邮件服务仅支援根域名(only support root domain),严禁www等前缀(no www allowed),否则后果自负!!!" 8 78
-whiptail --title "Example Dialog" --msgbox "Warning!!!:邮件服务需要MX DNS Record,请自行添加,否则后果自负!!!" 8 78
+whiptail --title "Warning" --msgbox "Warning!!!:邮件服务仅支援根域名(only support root domain),严禁www等前缀(no www allowed),否则后果自负!!!" 8 78
+whiptail --title "Warning" --msgbox "Warning!!!:邮件服务需要MX DNS Record,请自行添加,否则后果自负!!!" 8 78
 fi
 #####################################
 while [[ -z ${domain} ]]; do
@@ -2845,7 +2845,7 @@ local:
 EOF
 ##############Install Mail Service###############
 if [[ $install_mail = 1 ]]; then
-	if [[ ! -f /usr/local/bin/filebrowser ]]; then
+	if [[ ! -f /usr/sbin/postfix ]]; then
 	clear
 	colorEcho ${INFO} "Install Mail Service ing"
 	export DEBIAN_FRONTEND=noninteractive
@@ -3023,8 +3023,8 @@ tar -xvf roundcubemail-1.4.5-complete.tar.gz
 rm -rf roundcubemail-1.4.5-complete.tar.gz
 mv /usr/share/nginx/roundcubemail*/ /usr/share/nginx/roundcubemail/
 chown -R nginx:nginx /usr/share/nginx/roundcubemail/
-mysql -u root -e "CREATE DATABASE roundcube DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;"
-mysql -u root -e "CREATE USER roundcubeuser@localhost IDENTIFIED BY '${password1}';"
+mysql -u root -e "CREATE DATABASE roundcubemail DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;"
+mysql -u root -e "CREATE USER roundcube@localhost;"
 mysql -u root -e "GRANT ALL PRIVILEGES ON roundcube.* TO roundcubeuser@localhost;"
 mysql -u root -e "flush privileges;"
 mysql roundcube < /usr/share/nginx/roundcubemail/SQL/mysql.initial.sql
@@ -3210,7 +3210,7 @@ ssl_key = </etc/certs/${domain}_ecc/${domain}.key
 # Generate new params with `openssl dhparam -out /etc/dovecot/dh.pem 4096`
 # Or migrate from old ssl-parameters.dat file with the command dovecot
 # gives on startup when ssl_dh is unset.
-ssl_dh = </usr/share/dovecot/dh.pem
+ssl_dh = </usr/local/etc/trojan/trojan.pem
 
 # Minimum SSL protocol version to use. Potentially recognized values are SSLv3,
 # TLSv1, TLSv1.1, and TLSv1.2, depending on the OpenSSL version used.
@@ -3808,11 +3808,9 @@ body {
   background-color: #cccccc;
   font-size: 1.2em;
 }
-
 ul.ttlist{
     list-style: cjk-ideographic;
 }
-
 .menu{
     position: relative;
     background-color: #B2BEB5;  
@@ -3824,14 +3822,12 @@ ul.ttlist{
     width: 100%;
     height: 8%;
 }
-
 .menu ul{
     list-style-type: none;
     overflow: hidden;
     margin: 0;
     padding: 0;
 }
-
 .menu li{
     float: left;
 }
@@ -3843,11 +3839,9 @@ ul.ttlist{
     padding-right: 100px;
     text-decoration: none;
 }
-
 .menu li:hover {
     background-color: #CC99FF;
 }
-
 .tt{
     /* position: absolute; */
     border:1px #00f none;
@@ -3874,16 +3868,13 @@ ul.ttlist{
     color: #8095ff;
     /* font-size: 1.3em; */
 }
-
 .tt img{
     width: 550px;
     height: 40%;
 }
-
 .tt li {
     padding-top: 10px;
 }
-
 .subtt{
     text-align: center;
     margin: auto;
@@ -3894,11 +3885,9 @@ ul.ttlist{
     font-size: 0.8em;
     text-align: right;
 }
-
 .t1{
     font-size: 1.2em;
 }
-
 footer{
     padding-top: 0;
     position: fixed;
@@ -3908,22 +3897,18 @@ footer{
     height: 50px;
     bottom: 0;
 }
-
 footer p{
     color: #fff;
     text-align: center;
     font-size: 1em;
     font-family: sans-serif;
 }
-
 footer a{
     color: #fff;
 }
-
 footer a:link {
     text-decoration: none;
 }
-
 @media (max-width: 560px){
     .menu{
         font-size: 1.2em;
@@ -3931,7 +3916,6 @@ footer a:link {
     .sidebar {
         display: none;
     }
-
     .cate {
         display: none;
     }
@@ -3944,7 +3928,6 @@ footer a:link {
         padding-top: 0px;
     }
 }
-
 @media (max-width: 750px){
     .sidebar {
         display: none;
@@ -3956,17 +3939,14 @@ footer a:link {
 ::-webkit-scrollbar {
     width: 11px;
 }
-
 ::-webkit-scrollbar-track {
     background: #CCFFEE;
     border-radius: 10px;
 }
-
 ::-webkit-scrollbar-thumb {
     background: #B3E5FF;
     border-radius: 10px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
     background: #156; 
 }
@@ -4002,7 +3982,7 @@ footer a:link {
                             </ol>
                         </li>
                         <li>
-                            <h3>Trojan-GFW QR codes (Centos等不支援python3-prcode的系统会404!)</h3>
+                            <h3>Trojan-GFW QR codes (不支援python3-prcode的系统会404!)</h3>
                             <ol>
                                 <li><a href="$password1.png" target="_blank">QR code 1</a></li>
                                 <li><a href="$password2.png" target="_blank">QR code 2</a></li>
@@ -4103,7 +4083,6 @@ footer a:link {
                         <li><a href="https://filebrowser.xyz/" target="_blank">https://filebrowser.xyz/</a></li>
                     </ul>
                     <br>
-
                     <h2>Netdata</h2>
                     <h4>默认安装: ✅</h4>
                     <p>Your Netdata Information</p>
@@ -4114,7 +4093,6 @@ footer a:link {
                         <li><a href="https://github.com/netdata/netdata" target="_blank">https://github.com/netdata/netdata</a></li>
                     </ol>
                     <br>
-
                     <h2>Speedtest</h2>
                     <h4>默认安装: ✅</h4>
                     <p>Your Speedtest Information</p>
@@ -4125,7 +4103,6 @@ footer a:link {
                         <li><a href="https://github.com/librespeed/speedtest/blob/docker/doc.md" target="_blank">https://github.com/librespeed/speedtest/blob/docker/doc.md</a></li>
                     </ol>
                     <br>
-
                     <h2>MariaDB</h2>
                     <h4>默认安装: ✅</h4>
                     <p>Your MariaDb Information</p>
@@ -4135,26 +4112,6 @@ footer a:link {
                     <p>如果需要外网访问,请自行注释掉/etc/mysql/my.cnf中的bind-address选项并重启mariadb！</p>
                     <p>Please edit /etc/mysql/my.cnf and restart mariadb if you need remote access !</p>
                     <br>
-
-                    <h2>Mail Service</h2>
-                    <h4>默认安装: ❎</h4>
-                    <p>Your Mail service Information</p>
-                    <!-- <p><a href="https://$domain$qbtpath" target="_blank">https://$domain$qbtpath</a> 用户名(username): admin 密碼(password): adminadmin</p> -->
-                    <ul>
-                        <li><a href="https://$domain/${}_webmail/installer/" target="_blank">Install Page</a></li>
-                        <li><a href="https://$domain/${}_webmail/" target="_blank">Production Page</a></li>
-                        <li>用户名(username): roundcube</li>
-                        <li>密碼(password): ${password1}</li>
-                    </ul>
-                    <p>Tips:</p>
-                    <ul>
-                        <li><a href="https://www.linuxbabe.com/ubuntu/install-roundcube-webmail-ubuntu-18-04-apache-nginx" target="_blank">Install Roundcube Webmail on Ubuntu 18.04 with Apache/Nginx</a></li>
-                        <li><a href="https://www.linuxbabe.com/mail-server/secure-email-server-ubuntu-postfix-dovecot" target="_blank">Install Dovecot IMAP server on Ubuntu & Enable TLS Encryption</a></li>
-                    </ul>
-
-                    <h2>Cert Path</h2>
-                    <p>/etc/certs/${domain}_ecc/fullchain.cer</p>
-                    <p>/etc/certs/${domain}_ecc/${domain}.key</p>
                     
                     <h2>How to change the default config </h2>
                     <p>Nginx</p>
@@ -4193,7 +4150,6 @@ footer a:link {
                         <li><code>sudo systemctl start/restart/status tor@default</code></li>
                     </ul>
                     <br>
-
                 </div>
             </article>
             <footer>
