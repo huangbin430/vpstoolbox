@@ -2852,6 +2852,7 @@ if [[ $install_mail = 1 ]]; then
 	export DEBIAN_FRONTEND=noninteractive
 	apt-get install postfix -y
 	apt-get install postfix-policyd-spf-python -y
+	echo ${domain} > /etc/mailname
 	cat > '/etc/postfix/main.cf' << EOF
 # See /usr/share/postfix/main.cf.dist for a commented, more complete version
 
@@ -2920,8 +2921,6 @@ smtpd_helo_restrictions = permit_mynetworks permit_sasl_authenticated reject_non
 disable_vrfy_command = yes
 
 smtpd_sender_restrictions = permit_mynetworks permit_sasl_authenticated reject_unknown_sender_domain reject_unknown_reverse_client_hostname reject_unknown_client_hostname
-
-policyd-spf_time_limit = 3600
 smtpd_recipient_restrictions =
    permit_mynetworks,
    permit_sasl_authenticated,
@@ -3046,7 +3045,7 @@ mysql -u root -e "GRANT ALL PRIVILEGES ON roundcubemail.* TO roundcube@localhost
 mysql -u root -e "flush privileges;"
 mysql roundcube < /usr/share/nginx/roundcubemail/SQL/mysql.initial.sql
 useradd -m -s /sbin/nologin roundcube
-echo "${password1}" | passwd "roundcube" --stdin
+echo -e "${password1}\n${password1}" | passwd roundcube
 apt-get install opendkim opendkim-tools -y
 gpasswd -a postfix opendkim
 mkdir /etc/opendkim/
